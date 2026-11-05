@@ -35,6 +35,8 @@ function Shell({ preview }: { preview: boolean }) {
   const [page, setPage] = useState<Page>('Overview');
   const [view, setView] = useState<View>({ kind: 'page' });
   const { agents } = useSnapshot();
+  const viewKey = `${page}:${view.kind}:${'id' in view ? view.id : ''}`;
+  useEffect(() => { document.documentElement.scrollTop = 0; }, [viewKey]);
   const openAgent = (id: string) => { setPage('Agents'); setView({ kind: 'agent', id }); };
   const create = () => { setPage('Agents'); setView({ kind: 'create' }); };
   const agent = view.kind === 'agent' || view.kind === 'edit' ? agents.find(entry => entry.id === view.id) : undefined;

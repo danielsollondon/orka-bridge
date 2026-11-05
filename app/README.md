@@ -12,6 +12,18 @@ are running, what they are allowed to touch, what they did, and what went wrong.
 
 ![Overview](docs/images/overview.png)
 
+## See it in action
+
+| Flow | Demo |
+|---|---|
+| Live overview and recent activity: filter problems, drill into an event, jump to the agent | [Watch](#see-every-agent-at-a-glance) |
+| Create an agent: purpose, model, repos and MCP servers, security, limits, tests, review, start | [Watch](#create-an-agent-with-a-guided-walkthrough) |
+| Inspect an agent: resources, properties, activity, files and settings | [Watch](#agent-details-resources-task-and-properties) |
+| Fix a blocked agent with one click and restart it | [Watch](#errors-and-permission-problems-with-one-click-fixes) |
+| Shell into a running agent | [Watch](#integrated-shell) |
+| Pause, resume, start, copy, delete and stop | [Watch](#pause-resume-stop-copy-and-delete) |
+| Add model providers and change the default | [Watch](#choose-models-from-any-provider) |
+
 ## Contents
 
 - [Key capabilities](#key-capabilities)
@@ -39,7 +51,10 @@ are running, what they are allowed to touch, what they did, and what went wrong.
 
 **Overview** answers "what is running and is anything wrong?" It shows running and
 paused agents with their combined CPU and memory, errors and permission denials in the
-last 24 hours, a **Needs attention** list, and the latest activity.
+last 24 hours, a **Needs attention** list, and the latest activity. Usage and activity
+update live.
+
+![Overview and recent activity](docs/images/overview-activity.gif)
 
 **Agents** lists every agent with its status, model, network policy, live CPU and memory
 against its limits, and **tokens used against its token budget**. Pause, resume, start,
@@ -60,6 +75,8 @@ token use is simulated.
 **Create agent** walks you through the questions an agent developer should answer, in
 seven steps. You can jump between steps; problems are flagged on the step that has them
 and must be fixed before saving.
+
+![Creating an agent](docs/images/create-agent.gif)
 
 | Step | What it asks |
 |---|---|
@@ -114,6 +131,8 @@ Click an agent to see:
 - **Properties:** model and provider, isolation and limits, network policy, file access,
   credentials, approvals, repositories, MCP servers, skills, tools, tests and creation time
 
+![Inspecting an agent](docs/images/agent-properties.gif)
+
 ![Agent detail](docs/images/agent-detail.png)
 
 ### Errors and permission problems, with one-click fixes
@@ -122,6 +141,8 @@ When an agent fails or is blocked, it shows up under **Needs attention** on the 
 its status changes, and its page explains why. If it was blocked from a domain, you can
 allow that domain with one click, or leave it blocked. Problems are counted on the
 **Activity** tab.
+
+![Fixing a blocked agent](docs/images/fix-blocked-agent.gif)
 
 ![Agent blocked by network policy](docs/images/agent-error.png)
 
@@ -145,7 +166,7 @@ exactly what the agent sees, and its rules apply to you too: a `curl` to a domai
 the allowlist is refused, a `git push` waits for approval, and secrets are masked. Every
 command is recorded in the audit log. Command history works with the arrow keys.
 
-![Shell](docs/images/shell.png)
+![Shell](docs/images/shell.gif)
 
 > In the preview, the shell is simulated and supports `ls`, `cd`, `pwd`, `cat`, `env`,
 > `ps`, `top`, `df`, `curl`/`wget`, `git status|log|push`, `echo`, `clear` and `exit`.
@@ -162,11 +183,15 @@ command is recorded in the audit log. Command history works with the arrow keys.
 | **Delete** | Asks for confirmation, removes the sandbox and workspace, keeps the audit history |
 | **Edit** | Reopens the guided walkthrough with the current settings |
 
+![Lifecycle actions](docs/images/lifecycle.gif)
+
 ### Choose models from any provider
 
 **Models** holds the providers agents can use, shared across agents. Pick a provider,
 fill in only the fields it needs, and list the models agents may choose. One provider is
 the default for new agents.
+
+![Adding model providers](docs/images/models.gif)
 
 Supported: GitHub Copilot (uses your existing sign-in, no key), OpenAI, Azure OpenAI,
 Anthropic, Mistral AI, Google Gemini, DeepSeek, vLLM or any OpenAI-compatible endpoint,
