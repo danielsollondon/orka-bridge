@@ -56,7 +56,7 @@ update live.
 
 ![Overview and recent activity](docs/images/overview-activity.gif)
 
-**Agents** lists every agent with its status, model, network policy, live CPU and memory
+**Agents** lists every agent with its status, network policy, live CPU and memory
 against its limits, and **tokens used against its token budget**. Pause, resume, start,
 stop, copy and delete are one click away.
 

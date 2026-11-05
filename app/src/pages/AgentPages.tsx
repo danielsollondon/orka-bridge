@@ -74,7 +74,7 @@ export function OverviewPage({ onOpenAgent, onCreate, onOpenActivity }: {
 }
 
 export function AgentsPage({ onOpenAgent, onCreate }: { onOpenAgent: (id: string) => void; onCreate: () => void }) {
-  const { agents, models } = useSnapshot();
+  const { agents } = useSnapshot();
   return (
     <div className="stack">
       <div className="section-head">
@@ -84,12 +84,11 @@ export function AgentsPage({ onOpenAgent, onCreate }: { onOpenAgent: (id: string
       {agents.length === 0 ? <p className="card muted">No agents yet.</p> : (
         <div className="card table-card">
           <table className="agents-table">
-            <thead><tr><th>Name</th><th>Status</th><th>Model</th><th>Network</th><th>Usage / limit</th><th>Tokens</th><th>Updated</th><th><span className="sr-only">Actions</span></th></tr></thead>
+            <thead><tr><th>Name</th><th>Status</th><th>Network</th><th>Usage / limit</th><th>Tokens</th><th>Updated</th><th><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>
               {agents.map(agent => {
                 const last = agent.usage.samples.at(-1);
                 const live = agent.status === 'running' || agent.status === 'starting';
-                const model = models.find(entry => entry.id === agent.spec.model.configId);
                 return (
                   <tr key={agent.id} onClick={() => onOpenAgent(agent.id)}>
                     <td>
@@ -97,7 +96,6 @@ export function AgentsPage({ onOpenAgent, onCreate }: { onOpenAgent: (id: string
                       <div className="muted clamp">{agent.task ?? agent.spec.description}</div>
                     </td>
                     <td><StatusBadge status={agent.status} /></td>
-                    <td>{agent.spec.model.model}<div className="muted">{model?.label}</div></td>
                     <td>{networkSummary(agent.spec)}</td>
                     <td className="mono">{live && last
                       ? `${last.cpu.toFixed(2)}/${agent.spec.limits.cpu} CPU · ${Math.round(last.memoryMiB)} MiB/${formatMemory(agent.spec.limits.memoryMiB)}`

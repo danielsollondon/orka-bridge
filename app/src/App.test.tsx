@@ -127,7 +127,8 @@ test('blocks saving until problems are fixed', async () => {
 test('agent table shows token use against each budget', async () => {
   const { user } = setup();
   await user.click(nav('Agents'));
-  expect(screen.getAllByRole('columnheader').map(header => header.textContent)).toContain('Tokens');
+  expect(screen.getAllByRole('columnheader').map(header => header.textContent))
+    .toEqual(['Name', 'Status', 'Network', 'Usage / limit', 'Tokens', 'Updated', 'Actions']);
   const row = screen.getByRole('row', { name: /^docs-fixer/ });
   expect(within(row).getByText('84k')).toBeTruthy();
   expect(within(row).getByText('/ 500k')).toBeTruthy();
