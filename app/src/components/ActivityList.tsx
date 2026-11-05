@@ -4,10 +4,10 @@ import { Icon, type IconName } from './Icon';
 import { OutcomeBadge, timeAgo } from './ui';
 
 const KIND_ICON: Record<AuditKind, IconName> = {
-  lifecycle: 'agents', model: 'models', tool: 'wrench', network: 'globe', file: 'file', shell: 'terminal', secret: 'key',
+  lifecycle: 'agents', model: 'models', tool: 'wrench', network: 'globe', file: 'file', shell: 'terminal', secret: 'key', message: 'chat',
 };
 const KIND_LABEL: Record<AuditKind, string> = {
-  lifecycle: 'Lifecycle', model: 'Model', tool: 'Tool', network: 'Network', file: 'File', shell: 'Shell', secret: 'Secret',
+  lifecycle: 'Lifecycle', model: 'Model', tool: 'Tool', network: 'Network', file: 'File', shell: 'Shell', secret: 'Secret', message: 'Message',
 };
 
 export type ActivityFilter = 'all' | 'problems' | 'denied' | 'failed';

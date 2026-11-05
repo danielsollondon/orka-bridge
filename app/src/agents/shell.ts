@@ -1,4 +1,4 @@
-import { agentFile } from './spec';
+import { agentFile, channelLabel } from './spec';
 import { domainAllowed, hostOf } from './policy';
 import type { Agent, AuditOutcome } from './types';
 
@@ -189,7 +189,9 @@ tmpfs        64M    0M     /tmp`);
           ]);
         }
         if (spec.security.approvals.gitPush) {
-          return fail('Push held for approval. Approve it from the agent’s Activity tab.', 1, [
+          const channel = spec.channels.find(binding => binding.approvals);
+          const where = channel ? ` or in ${channelLabel(channel)}` : '';
+          return fail(`Push held for approval. Approve it from the agent’s Activity tab${where}.`, 1, [
             { kind: 'shell', outcome: 'denied', summary: `$ ${command.trim()} (waiting for approval)` },
           ]);
         }

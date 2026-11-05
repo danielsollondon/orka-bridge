@@ -3,6 +3,7 @@ import { networkSummary } from '../agents/policy';
 import { agentFiles, formatMemory } from '../agents/spec';
 import { useEngine, useSnapshot } from '../agents/store';
 import type { Agent } from '../agents/types';
+import { channelSummary } from '../pages/IntegrationsPage';
 import ActivityList from './ActivityList';
 import { Icon } from './Icon';
 import Terminal from './Terminal';
@@ -163,6 +164,7 @@ function OverviewTab({ agent, onOpenModels, onOpenShell }: { agent: Agent; onOpe
             ? <span className="muted"> · host: {spec.security.filesystem.hostMounts.map(mount => `${mount.path} (${mount.access})`).join(', ')}</span>
             : <span className="muted"> · no host folders</span>}</dd>
           <dt>Credentials</dt><dd>{spec.security.secrets.length ? spec.security.secrets.join(', ') : <span className="muted">None</span>}</dd>
+          <dt>Messaging</dt><dd>{spec.channels.length ? channelSummary(spec.channels).map(line => <div key={line}>{line}</div>) : <span className="muted">Only from Bridge</span>}</dd>
           <dt>Ask first</dt><dd>{[spec.security.approvals.gitPush && 'Git push', spec.security.approvals.newDomains && 'New domains'].filter(Boolean).join(', ') || <span className="muted">Nothing</span>}</dd>
           <dt>Repositories</dt><dd>{spec.workspace.git.length ? spec.workspace.git.map(repo => <div key={repo.url}><code>{repo.url}</code> <span className="muted">{repo.branch} · {repo.access}</span></div>) : <span className="muted">None</span>}</dd>
           <dt>MCP servers</dt><dd>{spec.workspace.mcp.length ? spec.workspace.mcp.map(server => <div key={server.name}>{server.name} <span className="muted">{server.transport === 'http' ? server.url : 'local command'}</span></div>) : <span className="muted">None</span>}</dd>

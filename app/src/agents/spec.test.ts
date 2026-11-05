@@ -128,6 +128,37 @@ test('network modes map to deny-by-default policy', () => {
   expect(agentFile(open)).toContain('    network:\n      default: allow\n');
 });
 
+test('messaging channels are saved under bridge.channels', () => {
+  const spec = { ...sample(), channels: [
+    { platform: 'slack' as const, channel: '#docs-team', listen: true, post: true, approvals: false },
+    { platform: 'teams' as const, channel: 'Engineering / Code review', listen: false, post: true, approvals: true },
+  ] };
+  expect(agentFile(spec)).toContain(`  channels:
+    - platform: slack
+      channel: "#docs-team"
+      listen: true
+      post: true
+      approvals: false
+    - platform: teams
+      channel: Engineering / Code review
+      listen: false
+      post: true
+      approvals: true
+  security:`);
+  expect(agentFile(sample())).not.toContain('channels:');
+});
+
+test('channel validation', () => {
+  const withChannels = (channels: AgentSpec['channels']) => validateSpec({ ...sample(), channels }, [], ['slack', 'teams']);
+  const slack = { platform: 'slack' as const, channel: '#docs', listen: true, post: false, approvals: false };
+  expect(withChannels([slack])).toEqual({});
+  expect(withChannels([{ ...slack, channel: 'docs' }])['channel.0']).toMatch(/Slack channel like #team-docs/);
+  expect(withChannels([{ ...slack, platform: 'teams', channel: 'General' }])['channel.0']).toMatch(/Team \/ Channel/);
+  expect(withChannels([slack, { ...slack, channel: '#DOCS' }])['channel.1']).toBeDefined();
+  expect(withChannels([{ ...slack, listen: false }])['channel.0']).toBe('Choose at least one way to use this channel.');
+  expect(validateSpec({ ...sample(), channels: [slack] }, [], ['teams'])['channel.0']).toBe('Connect Slack under Integrations first.');
+});
+
 test('validation explains each problem', () => {
   expect(validateSpec(sample())).toEqual({});
   const bad = sample();

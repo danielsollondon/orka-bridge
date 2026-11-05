@@ -7,12 +7,13 @@ import AgentDetail from './components/AgentDetail';
 import AgentWizard from './components/AgentWizard';
 import { Icon, type IconName } from './components/Icon';
 import { ActivityPage, AgentsPage, OverviewPage } from './pages/AgentPages';
+import { IntegrationsPage } from './pages/IntegrationsPage';
 import { EnvironmentsPage, ModelsPage } from './pages/SettingsPages';
 
-const pages = ['Overview', 'Agents', 'Activity', 'Models', 'Environments'] as const;
+const pages = ['Overview', 'Agents', 'Activity', 'Models', 'Integrations', 'Environments'] as const;
 type Page = (typeof pages)[number];
 const PAGE_ICON: Record<Page, IconName> = {
-  Overview: 'overview', Agents: 'agents', Activity: 'activity', Models: 'models', Environments: 'environments',
+  Overview: 'overview', Agents: 'agents', Activity: 'activity', Models: 'models', Integrations: 'integrations', Environments: 'environments',
 };
 
 type View = { kind: 'page' } | { kind: 'agent'; id: string } | { kind: 'create' } | { kind: 'edit'; id: string };
@@ -64,6 +65,7 @@ function Shell({ preview }: { preview: boolean }) {
         {title === 'Agents' && <AgentsPage onOpenAgent={openAgent} onCreate={create} />}
         {title === 'Activity' && <ActivityPage onOpenAgent={openAgent} />}
         {title === 'Models' && <ModelsPage />}
+        {title === 'Integrations' && <IntegrationsPage onOpenAgent={openAgent} />}
         {title === 'Environments' && <EnvironmentsPage />}
         {view.kind === 'create' && (
           <AgentWizard onCancel={() => setView({ kind: 'page' })} onDone={id => setView({ kind: 'agent', id })} />

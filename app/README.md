@@ -23,6 +23,7 @@ are running, what they are allowed to touch, what they did, and what went wrong.
 | Shell into a running agent | [Watch](#integrated-shell) |
 | Pause, resume, start, copy, delete and stop | [Watch](#pause-resume-stop-copy-and-delete) |
 | Add model providers and change the default | [Watch](#choose-models-from-any-provider) |
+| Connect Teams, route an agent to Slack and Teams channels, see its messages | [Watch](#work-in-slack-and-microsoft-teams) |
 
 ## Contents
 
@@ -37,6 +38,7 @@ are running, what they are allowed to touch, what they did, and what went wrong.
   - [Integrated shell](#integrated-shell)
   - [Pause, resume, stop, copy and delete](#pause-resume-stop-copy-and-delete)
   - [Choose models from any provider](#choose-models-from-any-provider)
+  - [Work in Slack and Microsoft Teams](#work-in-slack-and-microsoft-teams)
   - [Agents are plain files in kmx format](#agents-are-plain-files-in-kmx-format)
   - [Environments](#environments)
   - [Light and dark mode](#light-and-dark-mode)
@@ -72,7 +74,7 @@ token use is simulated.
 ### Create an agent with a guided walkthrough
 
 **Create agent** walks you through the questions an agent developer should answer, in
-seven steps. You can jump between steps; problems are flagged on the step that has them
+eight steps. You can jump between steps; problems are flagged on the step that has them
 and must be fixed before saving.
 
 ![Creating an agent](docs/images/create-agent.gif)
@@ -82,6 +84,7 @@ and must be fixed before saving.
 | **Purpose** | Name, one-line description, instructions (what to do, what "done" looks like, what it must never do) and an optional persona |
 | **Model** | Which configured provider and model to use, or add a new provider inline |
 | **Workspace & tools** | Git repositories to clone (read-only or read-and-push), MCP servers (remote or local command), skill packages, and which built-in tools the model is offered |
+| **Messaging** | Slack and Microsoft Teams channels where people can give it tasks, where it posts progress and results, and where it asks for approvals |
 | **Security** | Network, files, credentials and approvals (see below) |
 | **Limits** | CPU, memory, disk, maximum run time and token budget |
 | **Tests** | Real tasks with a pass condition, saved in kmx's test format |
@@ -261,6 +264,28 @@ Never close issues.
 You can see an agent's files on its **Files** tab and on the last step of the walkthrough
 (both appear in the demos above).
 
+### Work in Slack and Microsoft Teams
+
+Agents can work where your team already talks. Connect a Slack workspace or a Microsoft
+Teams organization once under **Integrations**, then choose channels for each agent in its
+**Messaging** step. For each channel, decide whether the agent:
+
+- **Takes tasks here:** mention `@agent-name` to start a task, for example
+  "@docs-fixer the getting-started links are broken again".
+- **Posts progress and results:** replies in the thread that started the task.
+- **Asks for approvals here:** actions under Security → Ask me first, such as a held
+  `git push`, become approval requests in the channel.
+
+Bridge relays every message, so agents never see Slack or Teams tokens and need no extra
+network access. Tokens stay in your system keychain. Mentions and posts appear in the audit
+log as **Message** events, and if a platform is disconnected the agent's channels are kept
+and marked **Paused until connected**. Channels are saved under `bridge.channels` in the
+agent file.
+
+![Connecting Teams and routing an agent to channels](docs/images/messaging.gif)
+
+![Integrations](docs/images/integrations.png)
+
 ### Environments
 
 **Environments** shows where agents run: this machine (a lightweight Linux VM managed by
@@ -316,7 +341,7 @@ React UI ──► AgentEngine interface ──► PreviewEngine (today, simulat
 | [`src/agents/shell.ts`](src/agents/shell.ts) | Simulated sandbox filesystem and shell |
 | [`src/agents/providers.ts`](src/agents/providers.ts) | Model provider catalog |
 | [`src/components/`](src/components) | Walkthrough, agent details, shell, activity list, provider picker |
-| [`src/pages/`](src/pages) | Overview, Agents, Activity, Models and Environments pages |
+| [`src/pages/`](src/pages) | Overview, Agents, Activity, Models, Integrations and Environments pages |
 
 A real engine implements `AgentEngine` and translates each agent's files into its own
 runtime objects, for example an AX Task, Workspace and Model, or an Orka Agent through
@@ -336,6 +361,7 @@ an engine uses Kubernetes underneath. A test enforces this.
 | Sandbox isolation and limit enforcement | **Not implemented**; needs a real engine |
 | Saving agent files to disk or Git | **Not implemented**; files are shown, kept in browser storage |
 | Keychain storage for API keys | **Not implemented**; the preview discards keys and keeps only a reference |
+| Slack and Teams | Screens and agent settings work; sign-in, message relay and approval cards are **simulated** |
 | Approvals for `git push` and new domains | Shown in policy and shell; approval flow **not implemented** |
 | Team environments | **Not implemented** |
 

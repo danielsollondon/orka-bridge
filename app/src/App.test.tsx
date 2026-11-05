@@ -7,7 +7,7 @@ import { PreviewEngine } from './agents/previewEngine';
 
 afterEach(() => { cleanup(); clearMocks(); vi.unstubAllGlobals(); });
 
-const PAGES = ['Overview', 'Agents', 'Activity', 'Models', 'Environments'];
+const PAGES = ['Overview', 'Agents', 'Activity', 'Models', 'Integrations', 'Environments'];
 
 function setup(seed = true) {
   const data = new Map<string, string>();
@@ -91,6 +91,10 @@ test('creates an agent through the guided steps and saves kmx files', async () =
   await user.type(screen.getByRole('textbox', { name: 'Repository URL' }), 'https://github.com/contoso/api.git');
   await user.click(screen.getByRole('checkbox', { name: /read_file/ }));
   await user.click(screen.getByRole('button', { name: 'Next' }));
+  await user.click(screen.getByRole('button', { name: /Add Slack channel/ }));
+  await user.type(screen.getByRole('textbox', { name: 'Slack channel' }), 'Triage Team');
+  await user.click(screen.getByRole('checkbox', { name: /Ask for approvals here/ }));
+  await user.click(screen.getByRole('button', { name: 'Next' }));
   expect(screen.getByText('Always isolated')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: /github\.com/ }));
   await user.type(screen.getByRole('textbox', { name: 'Secret name' }), 'gh_token');
@@ -102,6 +106,7 @@ test('creates an agent through the guided steps and saves kmx files', async () =
   expect(file).toContain('name: issue-triage\nmodel: gpt-5\nkmx:\n  schemaVersion: 1\n  runtime: orka');
   expect(file).toContain('      allow: [github.com]');
   expect(file).toContain('    secrets: [GH_TOKEN]');
+  expect(file).toContain('  channels:\n    - platform: slack\n      channel: "#triage-team"\n      listen: true\n      post: true\n      approvals: true\n');
   await user.type(screen.getByRole('textbox', { name: /^First task/ }), 'Triage today');
   await user.click(screen.getByRole('button', { name: /Create and start/ }));
   expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('issue-triage');
@@ -222,4 +227,60 @@ test('only_requests_engine_version_on_Environments_without_fetch', async () => {
   expect(screen.queryByRole('heading', { name: 'Engine available' })).toBeNull();
   expect(ipc).toHaveBeenCalledTimes(1);
   expect(fetch).not.toHaveBeenCalled();
+});
+
+test('connects Teams and routes an agent to a channel', async () => {
+  const { user, engine } = setup();
+  await user.click(nav('Integrations'));
+  const teams = screen.getByRole('region', { name: 'Microsoft Teams' });
+  expect(within(teams).getByText('Not connected')).toBeTruthy();
+  expect(within(teams).getByText('Paused until connected')).toBeTruthy();
+  await user.click(within(teams).getByRole('button', { name: 'Connect' }));
+  const dialog = screen.getByRole('dialog', { name: 'Connect Microsoft Teams' });
+  await user.click(within(dialog).getByRole('button', { name: /Sign in/ }));
+  expect(within(dialog).getByRole('alert').textContent).toBe('Enter the organization name.');
+  await user.type(within(dialog).getByRole('textbox', { name: 'Organization' }), 'Contoso Engineering');
+  await user.click(within(dialog).getByRole('button', { name: /Sign in/ }));
+  expect(within(screen.getByRole('region', { name: 'Microsoft Teams' })).getByText('Connected', { selector: '.tag' })).toBeTruthy();
+  expect(engine.snapshot().integrations.map(entry => [entry.platform, entry.account])).toEqual([['slack', 'Contoso'], ['teams', 'Contoso Engineering']]);
+
+  await user.click(within(screen.getByRole('region', { name: 'Slack' })).getByRole('button', { name: 'Disconnect' }));
+  await user.click(within(screen.getByRole('dialog', { name: 'Disconnect Slack?' })).getByRole('button', { name: 'Disconnect' }));
+  expect(engine.snapshot().integrations.map(entry => entry.platform)).toEqual(['teams']);
+  expect(engine.snapshot().events[0]).toMatchObject({ agentName: 'docs-fixer', kind: 'message', outcome: 'failed', summary: 'Slack disconnected' });
+});
+
+test('agent details and shell show messaging channels', async () => {
+  const { user } = setup();
+  await user.click(nav('Agents'));
+  await user.click(screen.getByRole('button', { name: 'docs-fixer' }));
+  expect(screen.getByText('#docs-team in Slack (listens, posts, approvals)')).toBeTruthy();
+  await user.click(screen.getByRole('tab', { name: 'Shell' }));
+  const input = screen.getByRole('textbox', { name: 'Shell command' });
+  await user.type(input, 'cd docs{Enter}git push{Enter}');
+  expect(screen.getByRole('log', { name: 'Shell output' }).textContent)
+    .toContain('Push held for approval. Approve it from the agent’s Activity tab or in #docs-team in Slack.');
+  await user.click(screen.getByRole('tab', { name: /Activity/ }));
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Event type' }), 'message');
+  expect(screen.getByText('Mentioned by @maria in #docs-team in Slack')).toBeTruthy();
+});
+
+test('wizard requires a connected platform for each channel', async () => {
+  const { user } = setup();
+  await user.click(nav('Agents'));
+  await user.click(screen.getByRole('button', { name: 'pr-reviewer' }));
+  await user.click(screen.getByRole('button', { name: /Edit/ }));
+  await user.click(within(screen.getByRole('navigation', { name: 'Steps' })).getByRole('button', { name: /Review/ }));
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(within(screen.getAllByRole('alert')[0]).getByText(/Connect Microsoft Teams under Integrations first/)).toBeTruthy();
+  await user.click(within(screen.getByRole('navigation', { name: 'Steps' })).getByRole('button', { name: /Messaging/ }));
+  await user.click(screen.getByRole('button', { name: 'Connect Microsoft Teams' }));
+  await user.type(screen.getByRole('textbox', { name: 'Organization' }), 'Contoso Engineering');
+  await user.click(screen.getByRole('button', { name: /Sign in/ }));
+  expect(screen.getByText('Connected to Contoso Engineering')).toBeTruthy();
+  expect(screen.getAllByRole('textbox', { name: 'Microsoft Teams channel' })).toHaveLength(2);
+  await user.click(screen.getAllByRole('button', { name: 'Remove channel' })[1]);
+  await user.click(within(screen.getByRole('navigation', { name: 'Steps' })).getByRole('button', { name: /Review/ }));
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('pr-reviewer');
 });

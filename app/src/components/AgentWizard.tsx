@@ -1,8 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { hostOf } from '../agents/policy';
-import { agentFiles, defaultSpec, formatMemory, LIMIT_BOUNDS, validateSpec } from '../agents/spec';
+import { agentFiles, defaultSpec, formatMemory, LIMIT_BOUNDS, PLATFORM_NAME, validateSpec } from '../agents/spec';
 import { useEngine, useSnapshot } from '../agents/store';
-import type { Agent, AgentSpec, McpServer, NetworkMode } from '../agents/types';
+import type { Agent, AgentSpec, McpServer, MessagingPlatform, NetworkMode } from '../agents/types';
+import { ConnectDialog } from '../pages/IntegrationsPage';
 import { Icon, type IconName } from './Icon';
 import { ProviderDialog } from './ProviderPicker';
 
@@ -10,6 +11,7 @@ const STEPS = [
   { id: 'basics', label: 'Purpose', icon: 'agents' },
   { id: 'model', label: 'Model', icon: 'models' },
   { id: 'workspace', label: 'Workspace & tools', icon: 'git' },
+  { id: 'messaging', label: 'Messaging', icon: 'chat' },
   { id: 'security', label: 'Security', icon: 'shield' },
   { id: 'limits', label: 'Limits', icon: 'cpu' },
   { id: 'tests', label: 'Tests', icon: 'check' },
@@ -21,6 +23,7 @@ const STEP_OF_ERROR: [RegExp, StepId][] = [
   [/^(name|instructions|soul)$/, 'basics'],
   [/^model$/, 'model'],
   [/^(tools|git\.|mcp\.|skill\.)/, 'workspace'],
+  [/^channel\./, 'messaging'],
   [/^(network|mount\.|secrets)/, 'security'],
   [/^limits\./, 'limits'],
   [/^test\./, 'tests'],
@@ -43,7 +46,7 @@ export default function AgentWizard({ agent, onDone, onCancel }: {
   agent?: Agent; onDone: (id: string) => void; onCancel: () => void;
 }) {
   const engine = useEngine();
-  const { agents, models } = useSnapshot();
+  const { agents, models, integrations } = useSnapshot();
   const fallbackModel = models.find(model => model.isDefault) ?? models[0];
   const [spec, setSpec] = useState<AgentSpec>(() => agent ? structuredClone(agent.spec)
     : defaultSpec({ configId: fallbackModel?.id ?? '', model: fallbackModel?.models[0] ?? '' }));
@@ -52,7 +55,8 @@ export default function AgentWizard({ agent, onDone, onCancel }: {
   const [left, setLeft] = useState<Set<StepId>>(new Set());
   const [task, setTask] = useState('');
   const taken = agents.filter(entry => entry.id !== agent?.id).map(entry => entry.spec.name);
-  const errors = useMemo(() => validateSpec(spec, taken), [spec, taken]);
+  const connected = integrations.map(integration => integration.platform);
+  const errors = useMemo(() => validateSpec(spec, taken, connected), [spec, taken, connected]);
   const index = STEPS.findIndex(entry => entry.id === step);
   const update = (change: (draft: AgentSpec) => void) => setSpec(current => {
     const draft = structuredClone(current);
@@ -102,6 +106,7 @@ export default function AgentWizard({ agent, onDone, onCancel }: {
           {step === 'basics' && <BasicsStep {...sectionProps} />}
           {step === 'model' && <ModelStep {...sectionProps} />}
           {step === 'workspace' && <WorkspaceStep {...sectionProps} />}
+          {step === 'messaging' && <MessagingStep {...sectionProps} />}
           {step === 'security' && <SecurityStep {...sectionProps} />}
           {step === 'limits' && <LimitsStep {...sectionProps} />}
           {step === 'tests' && <TestsStep {...sectionProps} />}
@@ -317,6 +322,71 @@ function WorkspaceStep({ spec, update, error }: SectionProps) {
         </div>
         {error('tools') && <small className="form-error" role="alert">{error('tools')}</small>}
       </Group>
+    </div>
+  );
+}
+
+function MessagingStep({ spec, update, error }: SectionProps) {
+  const { integrations } = useSnapshot();
+  const [connecting, setConnecting] = useState<MessagingPlatform>();
+  const platforms: { platform: MessagingPlatform; placeholder: string }[] = [
+    { platform: 'slack', placeholder: '#docs-team' },
+    { platform: 'teams', placeholder: 'Engineering / Code review' },
+  ];
+  const add = (platform: MessagingPlatform) => update(draft => {
+    draft.channels.push({ platform, channel: platform === 'slack' ? '#' : '', listen: true, post: true, approvals: false });
+  });
+  return (
+    <div className="form">
+      <p className="muted">Let people give this agent tasks from Slack or Microsoft Teams, and choose where it reports back.
+        Messages go through Bridge, so the agent never sees a Slack or Teams token.</p>
+      <div className="platforms">
+        {platforms.map(entry => {
+          const integration = integrations.find(item => item.platform === entry.platform);
+          return (
+            <div key={entry.platform} className="platform-row">
+              <span className="icon-tile"><Icon name={entry.platform} /></span>
+              <span className="grow"><b>{PLATFORM_NAME[entry.platform]}</b>
+                <small className="muted">{integration ? `Connected to ${integration.account}` : 'Not connected'}</small></span>
+              {integration
+                ? <button type="button" className="button small" onClick={() => add(entry.platform)}><Icon name="plus" /> Add {PLATFORM_NAME[entry.platform]} channel</button>
+                : <button type="button" className="button small" onClick={() => setConnecting(entry.platform)}>Connect {PLATFORM_NAME[entry.platform]}</button>}
+            </div>
+          );
+        })}
+      </div>
+      {spec.channels.length === 0 && <p className="muted empty-line">No channels. The agent only takes tasks from Bridge.</p>}
+      {spec.channels.map((binding, index) => (
+        <fieldset className="group channel" key={index}>
+          <legend className="sr-only">{PLATFORM_NAME[binding.platform]} channel {index + 1}</legend>
+          <div className="row">
+            <span className="icon-tile" title={PLATFORM_NAME[binding.platform]}><Icon name={binding.platform} /></span>
+            <input aria-label={`${PLATFORM_NAME[binding.platform]} channel`}
+              placeholder={platforms.find(entry => entry.platform === binding.platform)?.placeholder}
+              value={binding.channel}
+              onChange={event => update(draft => {
+                draft.channels[index].channel = binding.platform === 'slack' ? event.target.value.toLowerCase().replace(/\s+/g, '-') : event.target.value;
+              })} />
+            <RemoveButton label="Remove channel" onClick={() => update(draft => { draft.channels.splice(index, 1); })} />
+          </div>
+          <div className="checks">
+            <label className="check">
+              <input type="checkbox" checked={binding.listen} onChange={event => update(draft => { draft.channels[index].listen = event.target.checked; })} />
+              <span>Take tasks here<small className="muted">When someone mentions @{spec.name || 'agent'}</small></span>
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={binding.post} onChange={event => update(draft => { draft.channels[index].post = event.target.checked; })} />
+              <span>Post progress and results<small className="muted">Replies in the thread that started the task</small></span>
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={binding.approvals} onChange={event => update(draft => { draft.channels[index].approvals = event.target.checked; })} />
+              <span>Ask for approvals here<small className="muted">For actions under Security → Ask me first</small></span>
+            </label>
+          </div>
+          {error(`channel.${index}`) && <small className="form-error" role="alert">{error(`channel.${index}`)}</small>}
+        </fieldset>
+      ))}
+      {connecting && <ConnectDialog platform={connecting} onClose={() => setConnecting(undefined)} onConnected={() => add(connecting)} />}
     </div>
   );
 }

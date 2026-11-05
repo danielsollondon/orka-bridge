@@ -1,8 +1,8 @@
 import type { AgentEngine, EngineCapabilities, EngineSnapshot, ModelInput } from './engine';
 import { domainAllowed } from './policy';
 import { runShell } from './shell';
-import { defaultSpec } from './spec';
-import type { Agent, AgentSpec, AuditEvent, AuditKind, AuditOutcome, ModelConfig } from './types';
+import { channelLabel, defaultSpec, PLATFORM_NAME } from './spec';
+import type { Agent, AgentSpec, AuditEvent, AuditKind, AuditOutcome, Integration, MessagingPlatform, ModelConfig } from './types';
 
 const STORAGE_KEY = 'bridge.preview.v1';
 const MAX_EVENTS = 500;
@@ -39,7 +39,7 @@ export class PreviewEngine implements AgentEngine {
     private random: Random = Math.random,
     seed = true,
   ) {
-    this.state = this.load() ?? (seed ? seedState(now()) : { agents: [], events: [], models: [] });
+    this.state = this.load() ?? (seed ? seedState(now()) : { agents: [], events: [], models: [], integrations: [] });
   }
 
   snapshot() { return this.state; }
@@ -164,6 +164,24 @@ export class PreviewEngine implements AgentEngine {
     this.commit({ models: this.state.models.map(model => ({ ...model, isDefault: model.id === id })) });
   }
 
+  connectIntegration(platform: MessagingPlatform, account: string) {
+    const id = makeId('int');
+    // The native app runs the platform's sign-in and stores the bot token in the OS keychain.
+    const integration: Integration = { id, platform, account: account.trim(), connectedAt: this.now(), credentialRef: `keychain:bridge/${id}` };
+    this.commit({ integrations: [...this.state.integrations.filter(entry => entry.platform !== platform), integration] });
+    return integration;
+  }
+
+  disconnectIntegration(id: string) {
+    const integration = this.state.integrations.find(entry => entry.id === id);
+    if (!integration) return;
+    const events = this.state.agents
+      .filter(agent => agent.spec.channels.some(binding => binding.platform === integration.platform))
+      .map(agent => this.event(agent, 'message', 'failed', `${PLATFORM_NAME[integration.platform]} disconnected`,
+        'Its channels stay in the agent’s settings and work again when you reconnect.'));
+    this.commit({ integrations: this.state.integrations.filter(entry => entry.id !== id) }, events);
+  }
+
   /** Advances the simulation by one step. */
   tick() {
     const at = this.now();
@@ -222,6 +240,15 @@ export class PreviewEngine implements AgentEngine {
         permitted ? undefined : 'Not in the network allowlist. Add it under Security if the agent needs it.'));
     } else if (roll < 0.57) {
       events.push(this.event(agent, 'tool', 'failed', 'Tool call failed: run_tests', 'Exit code 1. The agent will retry.'));
+    } else if (roll < 0.62) {
+      const binding = agent.spec.channels.find(entry => entry.post);
+      if (binding) {
+        const connected = this.state.integrations.some(entry => entry.platform === binding.platform);
+        events.push(connected
+          ? this.event(agent, 'message', 'ok', `Posted progress to ${channelLabel(binding)}`)
+          : this.event(agent, 'message', 'failed', `Couldn’t post to ${channelLabel(binding)}`,
+            `${PLATFORM_NAME[binding.platform]} is not connected. Connect it under Integrations.`));
+      }
     }
     return { ...agent, usage, updatedAt: at };
   }
@@ -258,7 +285,11 @@ export class PreviewEngine implements AgentEngine {
       const raw = this.storage?.getItem(STORAGE_KEY);
       if (!raw) return undefined;
       const parsed = JSON.parse(raw) as EngineSnapshot;
-      return Array.isArray(parsed.agents) && Array.isArray(parsed.events) && Array.isArray(parsed.models) ? parsed : undefined;
+      if (!Array.isArray(parsed.agents) || !Array.isArray(parsed.events) || !Array.isArray(parsed.models)) return undefined;
+      // State saved before messaging existed has no integrations or channels.
+      parsed.integrations = Array.isArray(parsed.integrations) ? parsed.integrations : [];
+      for (const agent of parsed.agents) agent.spec.channels = Array.isArray(agent.spec.channels) ? agent.spec.channels : [];
+      return parsed;
     } catch {
       return undefined;
     }
@@ -282,6 +313,9 @@ function seedState(now: number): EngineSnapshot {
     { id: 'mdl_copilot', provider: 'github-copilot', label: 'GitHub Copilot', models: ['gpt-5', 'claude-sonnet-4.5', 'gpt-4.1'], isDefault: true },
     { id: 'mdl_mock', provider: 'mock', label: 'Mock Testing Model', models: ['fake'], isDefault: false },
   ];
+  const integrations: Integration[] = [
+    { id: 'int_slack', platform: 'slack', account: 'Contoso', connectedAt: now - 7 * 24 * 60 * 60_000, credentialRef: 'keychain:bridge/int_slack' },
+  ];
   const base = defaultSpec({ configId: 'mdl_copilot', model: 'gpt-5' });
   const minute = 60_000;
   const docs: AgentSpec = {
@@ -295,6 +329,7 @@ function seedState(now: number): EngineSnapshot {
       mcp: [{ name: 'github', transport: 'http', url: 'https://api.githubcopilot.com/mcp/', tools: ['create_pull_request'] }],
       skills: [{ name: 'link-checker', source: 'github.com/contoso/skills/link-checker' }],
     },
+    channels: [{ platform: 'slack', channel: '#docs-team', listen: true, post: true, approvals: true }],
     security: { ...base.security, network: { mode: 'allowlist', allow: ['github.com', 'api.github.com', '*.githubusercontent.com'] }, secrets: ['GITHUB_TOKEN'] },
     tests: [{ id: 'finds-broken-link', input: 'Check docs/setup.md', check: 'contains', value: 'broken' }],
   };
@@ -306,6 +341,7 @@ function seedState(now: number): EngineSnapshot {
     model: { configId: 'mdl_copilot', model: 'claude-sonnet-4.5' },
     tools: ['read_file', 'search_code'],
     workspace: { ...base.workspace, git: [{ url: 'https://github.com/contoso/api.git', branch: 'main', access: 'read-only' }] },
+    channels: [{ platform: 'teams', channel: 'Engineering / Code review', listen: true, post: true, approvals: false }],
     security: { ...base.security, filesystem: { workspace: 'read-only', hostMounts: [] }, network: { mode: 'allowlist', allow: ['github.com', 'api.github.com'] }, secrets: ['GITHUB_TOKEN'] },
     limits: { ...base.limits, cpu: 0.5, memoryMiB: 512 },
   };
@@ -362,6 +398,7 @@ function seedState(now: number): EngineSnapshot {
   const events: AuditEvent[] = [
     event(d, 4, 'lifecycle', 'failed', 'Agent stopped after repeated errors', 'npm install failed 3 times because the registry was blocked.'),
     event(d, 5, 'network', 'denied', 'Blocked connection to registry.npmjs.org', 'Not in the network allowlist. Add it under Security if the agent needs it.'),
+    event(a, 3, 'message', 'ok', 'Posted progress to #docs-team in Slack', 'Fixed 4 of 9 broken links. Opening a pull request next.'),
     event(a, 5, 'tool', 'ok', 'Called edit_file', 'docs/getting-started/install.md'),
     event(d, 6, 'tool', 'failed', 'Tool call failed: run_tests', 'npm ERR! network request to https://registry.npmjs.org failed'),
     event(d, 6, 'network', 'denied', 'Blocked connection to registry.npmjs.org', 'Not in the network allowlist. Add it under Security if the agent needs it.'),
@@ -372,9 +409,12 @@ function seedState(now: number): EngineSnapshot {
     event(d, 9, 'lifecycle', 'ok', 'Started: Update outdated dependencies in contoso/web'),
     event(a, 12, 'model', 'ok', 'Model call to gpt-5', '2,140 tokens'),
     event(a, 18, 'lifecycle', 'ok', 'Started: Fix broken links in docs/getting-started', 'Sandbox limited to 1 CPU and 1024 MiB memory.'),
+    event(a, 19, 'message', 'ok', 'Mentioned by @maria in #docs-team in Slack', '“@docs-fixer the getting-started links are broken again”'),
     event(r, 40, 'lifecycle', 'ok', 'Paused', 'Sandbox state was checkpointed to disk.'),
     event(r, 55, 'tool', 'ok', 'Called search_code'),
+    event(r, 45, 'message', 'failed', 'Couldn’t post to Engineering / Code review in Microsoft Teams', 'Microsoft Teams is not connected. Connect it under Integrations.'),
     event(n, 2 * 24 * 60, 'lifecycle', 'ok', 'Stopped', 'Sandbox removed. The workspace is kept.'),
   ];
-  return { agents, events, models };
+  events.sort((left, right) => right.at - left.at);
+  return { agents, events, models, integrations };
 }

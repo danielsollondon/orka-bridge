@@ -5,8 +5,8 @@ and a Rust shell under `app/src-tauri/`.
 
 ## Scope
 
-Keep changes focused. The app has Overview, Agents, Activity, Models and
-Environments, backed by a simulated preview engine (`app/src/agents/previewEngine.ts`)
+Keep changes focused. The app has Overview, Agents, Activity, Models,
+Integrations and Environments, backed by a simulated preview engine (`app/src/agents/previewEngine.ts`)
 behind the `AgentEngine` interface. Do not imply setup, isolation, testing or
 deployment works on the host until a real engine implements and verifies it; keep
 the "Preview data" label while the preview engine is active. Agent definitions use

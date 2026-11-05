@@ -1,4 +1,4 @@
-import type { AgentSpec, ModelConfig } from './types';
+import type { AgentSpec, ChannelBinding, MessagingPlatform, ModelConfig } from './types';
 
 /**
  * Agents are stored in kmx's single-file format: `NAME.agent.md` (YAML
@@ -11,6 +11,8 @@ export const NAME_PATTERN = /^[a-z][a-z0-9-]{0,62}$/;
 const DOMAIN_PATTERN = /^(\*\.)?([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 const SECRET_PATTERN = /^[A-Z_][A-Z0-9_]{0,63}$/;
 const TOOL_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/;
+const SLACK_CHANNEL_PATTERN = /^#[a-z0-9][a-z0-9._-]{0,79}$/;
+const TEAMS_CHANNEL_PATTERN = /^[^/]{1,128} \/ [^/]{1,128}$/;
 const TEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/;
 const MAX_SOUL_BYTES = 8192;
 
@@ -31,6 +33,7 @@ export function defaultSpec(model: { configId: string; model: string }): AgentSp
     model,
     tools: [],
     workspace: { git: [], mcp: [], skills: [] },
+    channels: [],
     security: {
       network: { mode: 'allowlist', allow: [] },
       filesystem: { workspace: 'read-write', hostMounts: [] },
@@ -44,7 +47,16 @@ export function defaultSpec(model: { configId: string; model: string }): AgentSp
 
 export type SpecErrors = Partial<Record<string, string>>;
 
-export function validateSpec(spec: AgentSpec, takenNames: string[] = []): SpecErrors {
+export const PLATFORM_NAME: Record<MessagingPlatform, string> = { slack: 'Slack', teams: 'Microsoft Teams' };
+
+export function channelLabel(binding: Pick<ChannelBinding, 'platform' | 'channel'>) {
+  return `${binding.channel} in ${PLATFORM_NAME[binding.platform]}`;
+}
+
+/**
+ * `connected` lists platforms with a connected integration; omit it to skip that check.
+ */
+export function validateSpec(spec: AgentSpec, takenNames: string[] = [], connected?: MessagingPlatform[]): SpecErrors {
   const errors: SpecErrors = {};
   if (!NAME_PATTERN.test(spec.name)) {
     errors.name = 'Use 1–63 lowercase letters, digits or hyphens, starting with a letter.';
@@ -71,6 +83,22 @@ export function validateSpec(spec: AgentSpec, takenNames: string[] = []): SpecEr
   });
   spec.workspace.skills.forEach((skill, index) => {
     if (!skill.name.trim() || !skill.source.trim()) errors[`skill.${index}`] = 'Enter a name and source.';
+  });
+  const channels = new Set<string>();
+  spec.channels.forEach((binding, index) => {
+    const key = `${binding.platform}:${binding.channel.toLowerCase()}`;
+    if (binding.platform === 'slack' && !SLACK_CHANNEL_PATTERN.test(binding.channel)) {
+      errors[`channel.${index}`] = 'Use a Slack channel like #team-docs (lowercase, no spaces).';
+    } else if (binding.platform === 'teams' && !TEAMS_CHANNEL_PATTERN.test(binding.channel)) {
+      errors[`channel.${index}`] = 'Use “Team / Channel”, for example Engineering / Code review.';
+    } else if (channels.has(key)) {
+      errors[`channel.${index}`] = 'This channel is already added.';
+    } else if (!binding.listen && !binding.post && !binding.approvals) {
+      errors[`channel.${index}`] = 'Choose at least one way to use this channel.';
+    } else if (connected && !connected.includes(binding.platform)) {
+      errors[`channel.${index}`] = `Connect ${PLATFORM_NAME[binding.platform]} under Integrations first.`;
+    }
+    channels.add(key);
   });
   const badDomain = spec.security.network.allow.find(domain => !DOMAIN_PATTERN.test(domain));
   if (badDomain) errors.network = `“${badDomain}” is not a domain. Use forms like github.com or *.example.com.`;
@@ -168,6 +196,12 @@ export function agentFile(spec: AgentSpec, config?: ModelConfig): string {
         ...(remoteMcp.length ? { mcp: remoteMcp.map(server => ({ name: server.name, url: server.url, tools: server.tools })) } : {}),
         skills: workspace.skills.map(skill => ({ name: skill.name, source: skill.source })),
       },
+      ...(spec.channels.length ? {
+        channels: spec.channels.map(binding => ({
+          platform: binding.platform, channel: binding.channel,
+          listen: binding.listen, post: binding.post, approvals: binding.approvals,
+        })),
+      } : {}),
       security: {
         isolation: 'sandbox',
         network: security.network.mode === 'allowlist'

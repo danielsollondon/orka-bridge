@@ -87,6 +87,41 @@ test('provider secrets are never persisted', () => {
   expect(preview.snapshot().models.map(model => [model.id, model.isDefault])).toEqual([[config.id, true]]);
 });
 
+test('integrations connect, replace and disconnect without storing tokens', () => {
+  const { engine: preview, storage } = engine();
+  const agent = preview.createAgent(spec({ channels: [{ platform: 'teams', channel: 'Eng / Bots', listen: true, post: true, approvals: false }] }));
+  const first = preview.connectIntegration('teams', ' Contoso ');
+  expect(first).toMatchObject({ platform: 'teams', account: 'Contoso', credentialRef: `keychain:bridge/${first.id}` });
+  const second = preview.connectIntegration('teams', 'Fabrikam');
+  expect(preview.snapshot().integrations.map(entry => entry.account)).toEqual(['Fabrikam']);
+  preview.disconnectIntegration(second.id);
+  expect(preview.snapshot().integrations).toEqual([]);
+  expect(preview.snapshot().events[0]).toMatchObject({ agentId: agent.id, kind: 'message', outcome: 'failed' });
+  expect([...storage.data.values()].join('')).not.toMatch(/xox[bp]-/);
+});
+
+test('running agents post to connected channels and report unconnected ones', () => {
+  // 0.6 selects the messaging branch of the simulation on every tick.
+  const { engine: preview } = engine(() => 0.6);
+  preview.createAgent(spec({ channels: [{ platform: 'slack', channel: '#ops', listen: false, post: true, approvals: false }] }), { start: true });
+  preview.tick();
+  preview.tick();
+  expect(preview.snapshot().events[0]).toMatchObject({ kind: 'message', outcome: 'failed', summary: 'Couldn’t post to #ops in Slack' });
+  preview.connectIntegration('slack', 'Contoso');
+  preview.tick();
+  expect(preview.snapshot().events[0]).toMatchObject({ kind: 'message', outcome: 'ok', summary: 'Posted progress to #ops in Slack' });
+});
+
+test('state saved before messaging existed still loads', () => {
+  const storage = memoryStorage();
+  const old = { ...spec() } as Partial<AgentSpec>;
+  delete old.channels;
+  storage.setItem('bridge.preview.v1', JSON.stringify({ agents: [{ id: 'a', spec: old, status: 'stopped', createdAt: 0, updatedAt: 0, usage: { samples: [], tokens: 0, netBytes: 0, diskMiB: 0 } }], events: [], models: [] }));
+  const loaded = new PreviewEngine(storage, Date.now, Math.random, false);
+  expect(loaded.snapshot().integrations).toEqual([]);
+  expect(loaded.snapshot().agents[0].spec.channels).toEqual([]);
+});
+
 test('state persists across engine instances', () => {
   const storage = memoryStorage();
   const first = new PreviewEngine(storage, Date.now, Math.random, false);

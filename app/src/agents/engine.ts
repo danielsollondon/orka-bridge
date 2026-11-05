@@ -1,5 +1,5 @@
 import type { ShellResult } from './shell';
-import type { Agent, AgentSpec, AuditEvent, ModelConfig } from './types';
+import type { Agent, AgentSpec, AuditEvent, Integration, MessagingPlatform, ModelConfig } from './types';
 
 /**
  * Features an engine can actually enforce. The UI disables controls an engine
@@ -17,6 +17,7 @@ export type EngineSnapshot = {
   agents: Agent[];
   events: AuditEvent[];
   models: ModelConfig[];
+  integrations: Integration[];
 };
 
 export type ModelInput = Omit<ModelConfig, 'id' | 'isDefault' | 'credentialRef'> & { id?: string };
@@ -46,4 +47,8 @@ export interface AgentEngine {
   saveModel(input: ModelInput, secret?: string): ModelConfig;
   removeModel(id: string): void;
   setDefaultModel(id: string): void;
+
+  /** Signs in to a Slack workspace or Teams organization; the token goes to the OS keychain. */
+  connectIntegration(platform: MessagingPlatform, account: string): Integration;
+  disconnectIntegration(id: string): void;
 }

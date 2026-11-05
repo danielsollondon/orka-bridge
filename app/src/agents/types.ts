@@ -7,6 +7,18 @@ export type McpServer =
 export type SkillPackage = { name: string; source: string };
 export type HostMount = { path: string; access: 'read-only' | 'read-write' };
 export type NetworkMode = 'none' | 'allowlist' | 'open';
+export type MessagingPlatform = 'slack' | 'teams';
+/** A channel the agent can use through a connected Slack workspace or Teams organization. */
+export type ChannelBinding = {
+  platform: MessagingPlatform;
+  channel: string;
+  /** Start a task when someone mentions or messages the agent here. */
+  listen: boolean;
+  /** Post progress and results here. */
+  post: boolean;
+  /** Send approval requests (for example a held git push) here. */
+  approvals: boolean;
+};
 export type AgentTest = { id: string; input: string; check: 'contains' | 'toolCalled'; value: string };
 
 export type AgentSpec = {
@@ -17,6 +29,7 @@ export type AgentSpec = {
   model: { configId: string; model: string };
   tools: string[];
   workspace: { git: GitRepo[]; mcp: McpServer[]; skills: SkillPackage[] };
+  channels: ChannelBinding[];
   security: {
     network: { mode: NetworkMode; allow: string[] };
     filesystem: { workspace: 'read-only' | 'read-write'; hostMounts: HostMount[] };
@@ -41,7 +54,7 @@ export type Agent = {
   usage: { samples: UsageSample[]; tokens: number; netBytes: number; diskMiB: number };
 };
 
-export type AuditKind = 'lifecycle' | 'model' | 'tool' | 'network' | 'file' | 'shell' | 'secret';
+export type AuditKind = 'lifecycle' | 'model' | 'tool' | 'network' | 'file' | 'shell' | 'secret' | 'message';
 export type AuditOutcome = 'ok' | 'denied' | 'failed';
 
 export type AuditEvent = {
@@ -69,4 +82,13 @@ export type ModelConfig = {
   /** Reference to a credential in the OS keychain, never the secret itself. */
   credentialRef?: string;
   isDefault: boolean;
+};
+
+/** A Slack workspace or Teams organization Bridge has signed in to. Tokens stay in the OS keychain. */
+export type Integration = {
+  id: string;
+  platform: MessagingPlatform;
+  account: string;
+  connectedAt: number;
+  credentialRef: string;
 };
