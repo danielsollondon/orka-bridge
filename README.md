@@ -104,6 +104,8 @@ one, comment on the relevant issue first to avoid duplicating work.
 
 ## Development
 
+See [app/README.md](app/README.md) for a tour of the agent manager UI with screenshots.
+
 The app opens Overview, Agents, Activity, Models and Environments. Until a runtime
 is connected, it uses a **preview engine** that simulates agents, resource usage,
 the audit log and the sandbox shell inside the window, and labels every screen
