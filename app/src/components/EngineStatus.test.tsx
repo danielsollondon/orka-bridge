@@ -56,7 +56,7 @@ test('ignores a late reply after unmount before reading its display fields', asy
   expect(document.body.textContent).toBe('');
 });
 
-test('shows loading then the engine version without claiming cluster readiness', async () => {
+test('shows loading then the engine version without claiming environment readiness', async () => {
   vi.stubGlobal('isTauri', true);
   let finish!: (value: unknown) => void;
   mockIPC(() => new Promise(resolve => { finish = resolve; }));
@@ -64,6 +64,6 @@ test('shows loading then the engine version without claiming cluster readiness',
   expect(screen.getByRole('heading', { name: 'Checking engine' })).toBeTruthy();
   await act(async () => { finish({ kind: 'version', version: 'v0.4.2', hasDiagnostics: false }); });
   expect(screen.getByRole('heading', { name: 'Engine available' })).toBeTruthy();
-  expect(screen.getByText('Version v0.4.2. Cluster readiness has not been checked.')).toBeTruthy();
+  expect(screen.getByText('Version v0.4.2. Environment readiness has not been checked.')).toBeTruthy();
   expect(screen.queryByRole('button')).toBeNull();
 });

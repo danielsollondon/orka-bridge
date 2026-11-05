@@ -1,42 +1,45 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { AgentEngine } from './agents/engine';
+import { PreviewEngine } from './agents/previewEngine';
+import { EngineContext, useSnapshot } from './agents/store';
 import mark from './assets/orka-mark.svg';
-import EngineStatus from './components/EngineStatus';
+import AgentDetail from './components/AgentDetail';
+import AgentWizard from './components/AgentWizard';
+import { Icon, type IconName } from './components/Icon';
+import { ActivityPage, AgentsPage, OverviewPage } from './pages/AgentPages';
+import { EnvironmentsPage, ModelsPage } from './pages/SettingsPages';
 
-const pages = ['Overview', 'Designer', 'Clusters'] as const;
+const pages = ['Overview', 'Agents', 'Activity', 'Models', 'Environments'] as const;
 type Page = (typeof pages)[number];
-
-const emptyCopy: Record<Page, { title: string; detail: string }> = {
-  Overview: {
-    title: 'Your agents, wherever they run',
-    detail: 'Agents on this machine and your connected clusters will appear here.',
-  },
-  Designer: {
-    title: 'A place to shape your agent',
-    detail: 'Your agent file, prompt, tools and tests will live here.',
-  },
-  Clusters: {
-    title: 'A place for your agents to run',
-    detail: 'Your local Orka and connected clusters will appear here.',
-  },
+const PAGE_ICON: Record<Page, IconName> = {
+  Overview: 'overview', Agents: 'agents', Activity: 'activity', Models: 'models', Environments: 'environments',
 };
 
-function PageIcon({ page }: { page: Page }) {
+type View = { kind: 'page' } | { kind: 'agent'; id: string } | { kind: 'create' } | { kind: 'edit'; id: string };
+
+export default function App({ engine }: { engine?: AgentEngine }) {
+  const active = useMemo(() => engine ?? new PreviewEngine(), [engine]);
+  useEffect(() => {
+    if (!(active instanceof PreviewEngine) || engine) return;
+    active.startSimulation();
+    return () => active.stopSimulation();
+  }, [active, engine]);
   return (
-    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
-      {page === 'Overview' && <>
-        <rect x="3" y="4" width="18" height="4.5" rx="1.5" />
-        <rect x="3" y="10" width="18" height="4.5" rx="1.5" />
-        <rect x="3" y="16" width="18" height="4.5" rx="1.5" />
-      </>}
-      {page === 'Designer' && <path d="M4 20l1-4L16 5a2.1 2.1 0 0 1 3 3L8 19l-4 1zM14 7l3 3" />}
-      {page === 'Clusters' && <path d="M12 3 3 8l9 5 9-5-9-5zM3 13l9 5 9-5" />}
-    </svg>
+    <EngineContext.Provider value={active}>
+      <Shell preview={active.preview} />
+    </EngineContext.Provider>
   );
 }
 
-export default function App() {
+function Shell({ preview }: { preview: boolean }) {
   const [page, setPage] = useState<Page>('Overview');
-  const copy = emptyCopy[page];
+  const [view, setView] = useState<View>({ kind: 'page' });
+  const { agents } = useSnapshot();
+  const openAgent = (id: string) => { setPage('Agents'); setView({ kind: 'agent', id }); };
+  const create = () => { setPage('Agents'); setView({ kind: 'create' }); };
+  const agent = view.kind === 'agent' || view.kind === 'edit' ? agents.find(entry => entry.id === view.id) : undefined;
+  const title = view.kind === 'page' || ((view.kind === 'agent' || view.kind === 'edit') && !agent) ? page : undefined;
+
   return (
     <div className="app-shell">
       <header className="tab-bar">
@@ -45,24 +48,32 @@ export default function App() {
           {pages.map(name => (
             <button key={name} className="page-tab" type="button"
               aria-current={page === name ? 'page' : undefined}
-              onClick={() => setPage(name)}>
-              <span className="icon-tile"><PageIcon page={name} /></span>
+              onClick={() => { setPage(name); setView({ kind: 'page' }); }}>
+              <span className="icon-tile"><Icon name={PAGE_ICON[name]} /></span>
               <span>{name}</span>
             </button>
           ))}
         </nav>
+        {preview && <span className="preview-pill" title="No runtime is connected yet. Agents, usage and activity on these screens are simulated in this window.">Preview data</span>}
       </header>
-      <main className="page-content" aria-labelledby="page-title">
-        <h1 id="page-title">{page}</h1>
-        <section className="card empty-state">
-          <span className="icon-tile empty-icon"><PageIcon page={page} /></span>
-          <div>
-            <h2>{copy.title}</h2>
-            <p className="empty-status">Nothing is connected yet.</p>
-            <p className="muted">{copy.detail}</p>
-          </div>
-        </section>
-        {page === 'Clusters' && <EngineStatus />}
+      <main className="page-content" aria-label={title ?? agent?.spec.name ?? 'Create an agent'}>
+        {title && <h1 className="page-title">{title}</h1>}
+        {title === 'Overview' && <OverviewPage onOpenAgent={openAgent} onCreate={create} onOpenActivity={() => setPage('Activity')} />}
+        {title === 'Agents' && <AgentsPage onOpenAgent={openAgent} onCreate={create} />}
+        {title === 'Activity' && <ActivityPage onOpenAgent={openAgent} />}
+        {title === 'Models' && <ModelsPage />}
+        {title === 'Environments' && <EnvironmentsPage />}
+        {view.kind === 'create' && (
+          <AgentWizard onCancel={() => setView({ kind: 'page' })} onDone={id => setView({ kind: 'agent', id })} />
+        )}
+        {view.kind === 'edit' && agent && (
+          <AgentWizard agent={agent} onCancel={() => setView({ kind: 'agent', id: agent.id })} onDone={id => setView({ kind: 'agent', id })} />
+        )}
+        {view.kind === 'agent' && agent && (
+          <AgentDetail key={agent.id} agent={agent} onBack={() => setView({ kind: 'page' })}
+            onEdit={() => setView({ kind: 'edit', id: agent.id })}
+            onOpenModels={() => { setPage('Models'); setView({ kind: 'page' }); }} />
+        )}
       </main>
     </div>
   );

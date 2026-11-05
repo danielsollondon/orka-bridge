@@ -4,6 +4,7 @@ import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './app.css';
 import './shell.css';
+import './agents.css';
 import App from './App';
 
 createRoot(document.getElementById('root')!).render(

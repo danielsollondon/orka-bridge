@@ -104,8 +104,17 @@ one, comment on the relevant issue first to avoid duplicating work.
 
 ## Development
 
-The native shell opens Overview, Designer and Clusters with empty screens.
-It does not connect to kmx or a cluster yet.
+The app opens Overview, Agents, Activity, Models and Environments. Until a runtime
+is connected, it uses a **preview engine** that simulates agents, resource usage,
+the audit log and the sandbox shell inside the window, and labels every screen
+"Preview data". Nothing runs on the host and no credentials are stored.
+
+Agents are saved in kmx's agent file format: `NAME/NAME.agent.md` (native kmx
+frontmatter plus the prompt), `NAME/NAME.agent.test.md` (tests) and `NAME/kmx.yaml`
+(local MCP servers). Sandbox, network, file, credential and limit settings that kmx
+does not model yet live under a `bridge:` frontmatter key, which kmx keeps and
+reports as unrepresented. The UI talks to engines through `app/src/agents/engine.ts`,
+so a kmx or AX runtime can replace the preview engine without UI changes.
 
 Install Node 26.5.0, npm 11.17.0, Rust 1.98.1 and the
 [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/).
