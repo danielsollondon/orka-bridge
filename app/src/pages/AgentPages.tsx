@@ -4,7 +4,7 @@ import { useSnapshot } from '../agents/store';
 import ActivityList from '../components/ActivityList';
 import { AgentActions } from '../components/AgentDetail';
 import { Icon } from '../components/Icon';
-import { StatusBadge, timeAgo } from '../components/ui';
+import { compactNumber, Meter, StatusBadge, timeAgo } from '../components/ui';
 
 export function OverviewPage({ onOpenAgent, onCreate, onOpenActivity }: {
   onOpenAgent: (id: string) => void; onCreate: () => void; onOpenActivity: () => void;
@@ -84,7 +84,7 @@ export function AgentsPage({ onOpenAgent, onCreate }: { onOpenAgent: (id: string
       {agents.length === 0 ? <p className="card muted">No agents yet.</p> : (
         <div className="card table-card">
           <table className="agents-table">
-            <thead><tr><th>Name</th><th>Status</th><th>Model</th><th>Network</th><th>Usage / limit</th><th>Updated</th><th><span className="sr-only">Actions</span></th></tr></thead>
+            <thead><tr><th>Name</th><th>Status</th><th>Model</th><th>Network</th><th>Usage / limit</th><th>Tokens</th><th>Updated</th><th><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>
               {agents.map(agent => {
                 const last = agent.usage.samples.at(-1);
@@ -102,6 +102,10 @@ export function AgentsPage({ onOpenAgent, onCreate }: { onOpenAgent: (id: string
                     <td className="mono">{live && last
                       ? `${last.cpu.toFixed(2)}/${agent.spec.limits.cpu} CPU · ${Math.round(last.memoryMiB)} MiB/${formatMemory(agent.spec.limits.memoryMiB)}`
                       : <span className="muted">{agent.spec.limits.cpu} CPU · {formatMemory(agent.spec.limits.memoryMiB)}</span>}</td>
+                    <td className="tokens-cell">
+                      <span className="mono">{compactNumber(agent.usage.tokens)} <span className="muted">/ {compactNumber(agent.spec.limits.maxTokens)}</span></span>
+                      <Meter value={agent.usage.tokens} max={agent.spec.limits.maxTokens} label={`${agent.spec.name} token budget used`} />
+                    </td>
                     <td className="muted">{timeAgo(agent.updatedAt)}</td>
                     <td><AgentActions agent={agent} compact /></td>
                   </tr>

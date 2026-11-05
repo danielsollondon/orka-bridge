@@ -240,3 +240,9 @@ input[type="range"] { padding: 0; border: 0; accent-color: var(--color-action); 
   .wizard-steps { flex-direction: row; overflow-x: auto; position: static; }
   .provider-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.tokens-cell { min-width: 120px; }
+.tokens-cell .meter { margin-top: 5px; }
+.agents-table td:not(:first-child) { white-space: nowrap; }
+.agents-table th, .agents-table td { padding-inline: 12px; }
+.agents-table .actions { flex-wrap: nowrap; gap: 0; }
+.agents-table .clamp { max-width: 240px; }

@@ -124,6 +124,17 @@ test('blocks saving until problems are fixed', async () => {
   expect(screen.getByText('Use 1–63 lowercase letters, digits or hyphens, starting with a letter.')).toBeTruthy();
 });
 
+test('agent table shows token use against each budget', async () => {
+  const { user } = setup();
+  await user.click(nav('Agents'));
+  expect(screen.getAllByRole('columnheader').map(header => header.textContent)).toContain('Tokens');
+  const row = screen.getByRole('row', { name: /^docs-fixer/ });
+  expect(within(row).getByText('84k')).toBeTruthy();
+  expect(within(row).getByText('/ 500k')).toBeTruthy();
+  expect(within(row).getByRole('meter', { name: 'docs-fixer token budget used' }).getAttribute('aria-valuenow')).toBe('84200');
+  expect(within(screen.getByRole('row', { name: /^release-notes/ })).getByText('9.8k')).toBeTruthy();
+});
+
 test('pause, resume and delete with confirmation', async () => {
   const { user, engine } = setup();
   await user.click(nav('Agents'));

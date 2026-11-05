@@ -41,8 +41,17 @@ are running, what they are allowed to touch, what they did, and what went wrong.
 paused agents with their combined CPU and memory, errors and permission denials in the
 last 24 hours, a **Needs attention** list, and the latest activity.
 
-**Agents** lists every agent with its status, model, network policy and live usage
-against its limits. Pause, resume, start, stop, copy and delete are one click away.
+**Agents** lists every agent with its status, model, network policy, live CPU and memory
+against its limits, and **tokens used against its token budget**. Pause, resume, start,
+stop, copy and delete are one click away.
+
+Token counts come from the model gateway: every model request from a sandbox goes
+through it, and model APIs report prompt and completion tokens on each response, so
+usage is attributed to the agent that made the call. Streaming requests get usage by
+having the gateway ask for it (`stream_options.include_usage` on OpenAI-compatible
+APIs); local servers such as Ollama and vLLM report counts too. The network allowlist
+keeps agents from calling model APIs directly and bypassing the count. In the preview,
+token use is simulated.
 
 ![Agents list](docs/images/agents.png)
 
