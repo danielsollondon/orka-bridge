@@ -58,7 +58,8 @@ update live.
 
 **Agents** lists every agent with its status, network policy, live CPU and memory
 against its limits, and **tokens used against its token budget**. Pause, resume, start,
-stop, copy and delete are one click away.
+stop, copy and delete are one click away (see the
+[lifecycle demo](#pause-resume-stop-copy-and-delete)).
 
 Token counts come from the model gateway: every model request from a sandbox goes
 through it, and model APIs report prompt and completion tokens on each response, so
@@ -67,8 +68,6 @@ having the gateway ask for it (`stream_options.include_usage` on OpenAI-compatib
 APIs); local servers such as Ollama and vLLM report counts too. The network allowlist
 keeps agents from calling model APIs directly and bypassing the count. In the preview,
 token use is simulated.
-
-![Agents list](docs/images/agents.png)
 
 ### Create an agent with a guided walkthrough
 
@@ -87,12 +86,6 @@ and must be fixed before saving.
 | **Limits** | CPU, memory, disk, maximum run time and token budget |
 | **Tests** | Real tasks with a pass condition, saved in kmx's test format |
 | **Review** | The exact files that will be saved, plus an optional first task. Create, or create and start |
-
-![Purpose step](docs/images/wizard-purpose.png)
-
-![Model step](docs/images/wizard-model.png)
-
-![Workspace and tools step](docs/images/wizard-workspace.png)
 
 ### Security: decide exactly what an agent can touch
 
@@ -119,8 +112,6 @@ a laptop (1 CPU, 1 GiB memory, 5 GiB disk, 2 hours, 500k tokens). When an agent 
 token budget it is paused; when it hits its maximum run time it is stopped. Both are
 recorded in the audit log.
 
-![Limits step](docs/images/wizard-limits.png)
-
 ### Agent details: resources, task and properties
 
 Click an agent to see:
@@ -133,8 +124,6 @@ Click an agent to see:
 
 ![Inspecting an agent](docs/images/agent-properties.gif)
 
-![Agent detail](docs/images/agent-detail.png)
-
 ### Errors and permission problems, with one-click fixes
 
 When an agent fails or is blocked, it shows up under **Needs attention** on the Overview,
@@ -144,8 +133,6 @@ allow that domain with one click, or leave it blocked. Problems are counted on t
 
 ![Fixing a blocked agent](docs/images/fix-blocked-agent.gif)
 
-![Agent blocked by network policy](docs/images/agent-error.png)
-
 ### Audit log
 
 **Activity** is an audit log of everything agents did: lifecycle changes, model calls,
@@ -153,11 +140,8 @@ tool calls, network connections, file changes, shell commands and secret use. Fi
 **Problems**, **Permission denied** or **Errors**, by event type, or search. Expand an
 event for its details. History is kept after an agent is deleted.
 
-![Activity log](docs/images/activity.png)
-
-Each agent also has its own Activity tab.
-
-![Agent activity](docs/images/agent-activity.png)
+Each agent also has its own Activity tab. The [overview demo](#see-every-agent-at-a-glance)
+shows filtering, expanding an event and jumping to the agent.
 
 ### Integrated shell
 
@@ -197,14 +181,8 @@ Supported: GitHub Copilot (uses your existing sign-in, no key), OpenAI, Azure Op
 Anthropic, Mistral AI, Google Gemini, DeepSeek, vLLM or any OpenAI-compatible endpoint,
 local models such as Ollama or LM Studio, and a mock model for testing.
 
-![Provider picker](docs/images/provider-picker.png)
-
 API keys go to the system keychain. Agents never see them; the model gateway adds them
 to requests.
-
-![Azure OpenAI provider](docs/images/provider-form.png)
-
-![Models](docs/images/models.png)
 
 ### Agents are plain files in kmx format
 
@@ -280,9 +258,8 @@ Never close issues.
   kmx keeps them and reports them as unrepresented rather than dropping them.
 - The generated files are checked against kmx's own native file reader.
 
-You can see an agent's files on its **Files** tab and on the last step of the walkthrough.
-
-![Agent files](docs/images/agent-files.png)
+You can see an agent's files on its **Files** tab and on the last step of the walkthrough
+(both appear in the demos above).
 
 ### Environments
 
